@@ -1,205 +1,116 @@
-#!/usr/bin/env bash
-#
-# SCRIPT DE AUTOMACAO PARA SETUP DO PROJETO PYSPARK
-# ----------------------------------------------------
-# 1. Cria a estrutura de diretórios.
-# 2. Configura o ambiente virtual e instala dependências (pyspark, pyyaml).
-# 3. Cria o arquivo de configuração YAML.
-# 4. Cria todos os módulos Python na pasta src/.
-# 5. Cria o script de download de dados (src/download_data.sh).
-#
+Data-Engineering-Programming_Trabalho-Final_Projeto-Pyspark
 
-echo "==============================================="
-echo "INICIANDO SETUP DO PROJETO PYSPARK"
-echo "==============================================="
+Este guia detalha os passos para configurar e executar um projeto de pipeline de dados com PySpark.
 
-# Define o nome da pasta raiz do projeto
-PROJECT_DIR="data-engineering-pyspark"
+1. Configuração Inicial
 
-# Verifica se o diretório já existe
-if [ -d "$PROJECT_DIR" ]; then
-    echo "Diretório '$PROJECT_DIR' já existe. Acessando..."
-    cd "$PROJECT_DIR"
-else
-    echo "Criando e acessando diretório raiz: $PROJECT_DIR"
-    mkdir -p "$PROJECT_DIR"
-    cd "$PROJECT_DIR"
-fi
+1.1 Instale o Java 17:
 
-# 1. CRIAÇÃO DA ESTRUTURA DE DIRETÓRIOS
-echo "1/7 - Criando estrutura de diretórios..."
-mkdir -p src/{config,session,io_utils,processing}
-mkdir -p data/{input,output}
-mkdir -p config
-touch src/config/__init__.py src/session/__init__.py src/io_utils/__init__.py src/processing/__init__.py
-echo "Estrutura criada."
+O PySpark exige a instalação do Java.
 
-# 2. SETUP DO AMBIENTE VIRTUAL E DEPENDÊNCIAS
-echo "2/7 - Configurando ambiente virtual Python e instalando PySpark e pyyaml..."
+sudo apt update -y && sudo apt upgrade -y
+sudo apt install -y openjdk-17-jdk
+
+
+2. Criação de pasta para o projeto
+
+2.1 Crie uma pasta para o projeto:
+
+mkdir -p data-engineering-pyspark/src
+mkdir -p data-engineering-pyspark/data/input
+mkdir -p data-engineering-pyspark/data/output
+
+
+2.2 Acesse a pasta do projeto:
+
+cd data-engineering-pyspark
+
+
+3. Criar um ambiente virtual e instalação das dependencias 
+
+Instale o PySpark e a dependência pyyaml (necessária para o arquivo de configuração YAML).
+
 python3 -m venv .venv
 source .venv/bin/activate
 pip install pyspark pyyaml
-echo "Ambiente configurado e dependências instaladas."
 
-# 3. CRIAÇÃO DO ARQUIVO DE CONFIGURAÇÃO (YAML)
-echo "3/7 - Criando config/settings.yaml..."
-cat > config/settings.yaml << 'EOF_YAML'
-spark:
-  app_name: "Analise de Pedidos 2025"
 
-paths:
-  pagamentos: "data/input/pagamentos-*.json.gz"
-  pedidos: "data/input/pedidos-*.csv.gz"
-  output: "data/output/relatorio_pedidos_2025"
+4. Baixe os datasets
 
-file_options:
-  pedidos_csv:
-    compression: "gzip"
-    header: true
-    sep: ";"
-EOF_YAML
-echo "settings.yaml criado."
+4.1 Crie o aquivo src/download_data.sh
 
-# 4. CRIAÇÃO DOS MÓDULOS PYTHON (SRC)
-echo "4/7 - Criando módulos Python..."
+touch src/download_data.sh
 
-# src/config/settings.py
-cat > src/config/settings.py << 'EOF_CONFIG_PY'
-import yaml
 
-def carregar_config(path: str = "config/settings.yaml") -> dict:
-    """Carrega um arquivo de configuração YAML."""
-    # O path e ajustado para funcionar a partir da raiz do projeto, onde main.py e executado.
-    with open(path, "r", encoding="utf-8") as file:
-        return yaml.safe_load(file)
-EOF_CONFIG_PY
+4.2. Copie o script abaixo no arquivo:
 
-# src/session/spark_session.py
-cat > src/session/spark_session.py << 'EOF_SESSION_PY'
-from pyspark.sql import SparkSession
+Este script baixa automaticamente o conteúdo dos repositórios necessários para a execução:
 
-class SparkSessionManager:
-    """Gerencia a criação da SparkSession."""
+https://github.com/infobarbosa/datasets-csv-pedidos
 
-    @staticmethod
-    def get_spark_session(app_name: str) -> SparkSession:
-        return (
-            SparkSession.builder
-                .appName(app_name)
-                .master("local[*]")
-                .config("spark.sql.shuffle.partitions", "4")
-                .config("spark.ui.showConsoleProgress", "true")
-                .getOrCreate()
-        )
-EOF_SESSION_PY
+https://github.com/infobarbosa/dataset-json-pagamentos
 
-# src/io_utils/data_handler.py
-cat > src/io_utils/data_handler.py << 'EOF_HANDLER_PY'
-from pyspark.sql import SparkSession, DataFrame
-from pyspark.sql.types import (
-    StructType, StructField, StringType, LongType,
-    FloatType, TimestampType, BooleanType, DoubleType
-)
+<!-- end list -->
 
-class DataHandler:
-    """Realiza leitura/escrita de dados."""
+#!/usr/bin/env bash
+set -e
 
-    def __init__(self, spark: SparkSession):
-        self.spark = spark
+# Nota: Ajuste esta variavel se o seu caminho for diferente.
+ROOT="/home/ubuntu/environment/data-engineering-pyspark"
+INPUT_DIR="$ROOT/data/input"
 
-    def _get_schema_pagamentos(self) -> StructType:
-        return StructType([
-            StructField("avaliacao_fraude", StructType([
-                StructField("fraude", BooleanType(), True),
-                StructField("score", DoubleType(), True),
-            ])),
-            StructField("data_processamento", StringType(), True),
-            StructField("forma_pagamento", StringType(), True),
-            StructField("id_pedido", StringType(), True),
-            StructField("status", BooleanType(), True),
-            StructField("valor_pagamento", DoubleType(), True)
-        ])
+echo "🧽 Limpando diretórios..."
+rm -rf "$ROOT/data/tmp-pagamentos" "$ROOT/data/tmp-pedidos"
+mkdir -p "$INPUT_DIR"
+rm -rf "$INPUT_DIR"/*
 
-    def _get_schema_pedidos(self) -> StructType:
-        return StructType([
-            StructField("ID_PEDIDO", StringType(), True),
-            StructField("PRODUTO", StringType(), True),
-            StructField("VALOR_UNITARIO", FloatType(), True),
-            StructField("QUANTIDADE", LongType(), True),
-            StructField("DATA_CRIACAO", TimestampType(), True),
-            StructField("UF", StringType(), True),
-            StructField("ID_CLIENTE", LongType(), True)
-        ])
+echo ""
+echo "⬇ Baixando TODOS os arquivos de PAGAMENTOS (via API GitHub)..."
 
-    def load_pagamentos(self, path: str) -> DataFrame:
-        schema = self._get_schema_pagamentos()
-        return (
-            self.spark.read
-                .schema(schema)
-                .option("compression", "gzip")
-                .json(path)
-        )
+# lista todos os arquivos da pasta data/pagamentos/
+curl -s [https://api.github.com/repos/infobarbosa/dataset-json-pagamentos/contents/data/pagamentos](https://api.github.com/repos/infobarbosa/dataset-json-pagamentos/contents/data/pagamentos) \
+| grep "download_url" \
+| cut -d '"' -f 4 \
+| while read url; do
+      echo "Baixando: $(basename $url)"
+      curl -L "$url" -o "$INPUT_DIR/$(basename $url)"
+  done
 
-    def load_pedidos(self, path: str, options: dict) -> DataFrame:
-        schema = self._get_schema_pedidos()
-        return (
-            self.spark.read
-                .options(**options)
-                .schema(schema)
-                .csv(path)
-        )
+echo ""
+echo "⬇ Baixando TODOS os arquivos de PEDIDOS (pasta data/pedidos)..."
 
-    def write_parquet(self, df: DataFrame, path: str):
-        df.write.mode("overwrite").parquet(path)
-        print(f"✔ Arquivo gerado em: {path}")
-EOF_HANDLER_PY
+curl -s [https://api.github.com/repos/infobarbosa/datasets-csv-pedidos/contents/data/pedidos](https://api.github.com/repos/infobarbosa/datasets-csv-pedidos/contents/data/pedidos) \
+| grep "download_url" \
+| cut -d '"' -f 4 \
+| while read url; do
+      echo "Baixando: $(basename $url)"
+      curl -L "$url" -o "$INPUT_DIR/$(basename $url)"
+  done
 
-# src/processing/transformations.py
-cat > src/processing/transformations.py << 'EOF_TRANSFORM_PY'
-from pyspark.sql import DataFrame
-from pyspark.sql import functions as F
+echo ""
+echo "📂 Arquivos baixados:"
+ls -lh "$INPUT_DIR"
 
-class Transformation:
+echo ""
+echo "✅ Processo concluído com sucesso!"
 
-    def filtrar_pagamentos_validos(self, pagamentos_df: DataFrame) -> DataFrame:
-        # Filtra por status=False (pago/nao-estornado) E fraude=False (legitimo)
-        return (
-            pagamentos_df
-                .filter(F.col("status") == False)
-                .filter(F.col("fraude") == False)
-        )
 
-    def filtrar_pedidos_2025(self, pedidos_df: DataFrame) -> DataFrame:
-        return pedidos_df.filter(F.year("DATA_CRIACAO") == 2025)
+4.3 Execute o script para baixar os datasets.
 
-    def adicionar_valor_total(self, pedidos_df: DataFrame) -> DataFrame:
-        return pedidos_df.withColumn(
-            "valor_total",
-            F.col("VALOR_UNITARIO") * F.col("QUANTIDADE")
-        )
+Não se esqueça de conceder permissão de execução: chmod +x src/download_data.sh.
 
-    def join_pedidos_pagamentos(self, pedidos_df, pagamentos_df):
-        return pedidos_df.join(
-            pagamentos_df,
-            pedidos_df.ID_PEDIDO == pagamentos_df.id_pedido,
-            "inner"
-        )
+./src/download_data.sh
 
-    def selecionar_campos_finais(self, df):
-        return df.select(
-            df.ID_PEDIDO.alias("id_pedido"),
-            df.UF.alias("estado"),
-            df.forma_pagamento,
-            df.valor_total,
-            df.DATA_CRIACAO.alias("data_pedido")
-        )
 
-    def ordenar_relatorio(self, df):
-        return df.orderBy("estado", "forma_pagamento", "data_pedido")
-EOF_TRANSFORM_PY
+5. Criação do script src/main.py
 
-# src/main.py
-cat > src/main.py << 'EOF_MAIN_PY'
+5.1 Crie o script src/main.py
+
+touch src/main.py
+
+
+5.2 Adicione o conteúdo abaixo no arquivo src/main.py:
+
 from pyspark.sql import functions as F
 
 from config.settings import carregar_config
@@ -259,62 +170,223 @@ except Exception as e:
 finally:
     print("Finalizado!")
     spark.stop()
-EOF_MAIN_PY
 
-# 5. CRIAÇÃO DO SCRIPT DE DOWNLOAD
-echo "5/7 - Criando src/download_data.sh..."
 
-# Nota: Mantendo o ROOT original do seu prompt.
-ROOT_PATH_DOWNLOAD="/home/ubuntu/environment/data-engineering-pyspark"
+6. Centralizando as Configurações
 
-cat > src/download_data.sh << EOF_DOWNLOAD
-#!/usr/bin/env bash
-set -e
+6.1 Instale a dependência pyyaml:
 
-ROOT="$ROOT_PATH_DOWNLOAD"
-INPUT_DIR="\$ROOT/data/input"
+pip install pyyaml
 
-echo "🧽 Limpando diretórios..."
-rm -rf "\$ROOT/data/tmp-pagamentos" "\$ROOT/data/tmp-pedidos"
-mkdir -p "\$INPUT_DIR"
-rm -rf "\$INPUT_DIR"/*
 
-echo ""
-echo "⬇ Baixando TODOS os arquivos de PAGAMENTOS (via API GitHub)..."
+6.2 Crie um arquivo config/settings.yaml:
 
-# lista todos os arquivos da pasta data/pagamentos/
-curl -s https://api.github.com/repos/infobarbosa/dataset-json-pagamentos/contents/data/pagamentos \\
-| grep "download_url" \\
-| cut -d '"' -f 4 \\
-| while read url; do
-      echo "Baixando: \$(basename \$url)"
-      curl -L "\$url" -o "\$INPUT_DIR/\$(basename \$url)"
-  done
+mkdir config
+touch config/settings.yaml
 
-echo ""
-echo "⬇ Baixando TODOS os arquivos de PEDIDOS (pasta data/pedidos)..."
 
-curl -s https://api.github.com/repos/infobarbosa/datasets-csv-pedidos/contents/data/pedidos \\
-| grep "download_url" \\
-| cut -d '"' -f 4 \\
-| while read url; do
-      echo "Baixando: \$(basename \$url)"
-      curl -L "\$url" -o "\$INPUT_DIR/\$(basename \$url)"
-  done
+6.3 Adicione o seguinte conteúdo ao arquivo config/settings.yaml:
 
-echo ""
-echo "📂 Arquivos baixados:"
-ls -lh "\$INPUT_DIR"
+spark:
+  app_name: "Analise de Pedidos 2025"
 
-echo ""
-echo "✅ Processo concluído com sucesso!"
-EOF_DOWNLOAD
+paths:
+  pagamentos: "data/input/pagamentos-*.json.gz"
+  pedidos: "data/input/pedidos-*.csv.gz"
+  output: "data/output/relatorio_pedidos_2025"
 
-chmod +x src/download_data.sh
-echo "src/download_data.sh criado e permissão de execução concedida."
+file_options:
+  pedidos_csv:
+    compression: "gzip"
+    header: true
+    sep: ";"
 
-echo "==============================================="
-echo "SETUP CONCLUÍDO COM SUCESSO."
-echo "Execute: cd $PROJECT_DIR && source .venv/bin/activate"
-echo "Para o próximo passo, consulte o README.md."
-echo "==============================================="
+
+6.4 Crie o diretório e o arquivo de inicialização:
+
+mkdir -p src/config
+touch src/config/__init__.py
+
+
+6.5 Crie o arquivo src/config/settings.py:
+
+touch src/config/settings.py
+
+
+6.6 Cole o código abaixo no conteudo do arquivo:
+
+import yaml
+
+def carregar_config(path: str = "config/settings.yaml") -> dict:
+    """Carrega um arquivo de configuração YAML."""
+    with open(path, "r", encoding="utf-8") as file:
+        return yaml.safe_load(file)
+
+
+7. Gerenciando a Sessão Spark
+
+7.1 Crie o diretório e o arquivo de inicialização:
+
+mkdir -p src/session
+touch src/session/__init__.py
+
+
+7.2 Crie o arquivo src/session/spark_session.py:
+
+touch src/session/spark_session.py
+
+
+7.3 Adicione o seguinte código a ele:
+
+from pyspark.sql import SparkSession
+
+class SparkSessionManager:
+    """Gerencia a criação da SparkSession."""
+
+    @staticmethod
+    def get_spark_session(app_name: str) -> SparkSession:
+        return (
+            SparkSession.builder
+                .appName(app_name)
+                .master("local[*]")
+                .config("spark.sql.shuffle.partitions", "4")
+                .config("spark.ui.showConsoleProgress", "true")
+                .getOrCreate()
+        )
+
+
+8. Pacote de Leitura e Escrita de Dados (I/O)
+
+8.1 Crie o diretório e o arquivo de inicialização:
+
+mkdir -p src/io_utils
+touch src/io_utils/__init__.py
+
+
+8.2 Crie o arquivo src/io_utils/data_handler.py:
+
+touch src/io_utils/data_handler.py
+
+
+8.3 Adicione o seguinte código a ele:
+
+from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql.types import (
+    StructType, StructField, StringType, LongType,
+    FloatType, TimestampType, BooleanType, DoubleType
+)
+
+class DataHandler:
+    """Realiza leitura/escrita de dados."""
+
+    def __init__(self, spark: SparkSession):
+        self.spark = spark
+
+    def _get_schema_pagamentos(self) -> StructType:
+        return StructType([
+            StructField("avaliacao_fraude", StructType([
+                StructField("fraude", BooleanType(), True),
+                StructField("score", DoubleType(), True),
+            ])),
+            StructField("data_processamento", StringType(), True),
+            StructField("forma_pagamento", StringType(), True),
+            StructField("id_pedido", StringType(), True),
+            StructField("status", BooleanType(), True),
+            StructField("valor_pagamento", DoubleType(), True)
+        ])
+
+    def _get_schema_pedidos(self) -> StructType:
+        return StructType([
+            StructField("ID_PEDIDO", StringType(), True),
+            StructField("PRODUTO", StringType(), True),
+            StructField("VALOR_UNITARIO", FloatType(), True),
+            StructField("QUANTIDADE", LongType(), True),
+            StructField("DATA_CRIACAO", TimestampType(), True),
+            StructField("UF", StringType(), True),
+            StructField("ID_CLIENTE", LongType(), True)
+        ])
+
+    def load_pagamentos(self, path: str) -> DataFrame:
+        schema = self._get_schema_pagamentos()
+        return (
+            self.spark.read
+                .schema(schema)
+                .option("compression", "gzip")
+                .json(path)
+        )
+
+    def load_pedidos(self, path: str, options: dict) -> DataFrame:
+        schema = self._get_schema_pedidos()
+        return (
+            self.spark.read
+                .options(**options)
+                .schema(schema)
+                .csv(path)
+        )
+
+    def write_parquet(self, df: DataFrame, path: str):
+        df.write.mode("overwrite").parquet(path)
+        print(f"✔ Arquivo gerado em: {path}")
+
+
+9. Isolando a Lógica de Negócio
+
+9.1 Crie o diretório e o arquivo de inicialização:
+
+mkdir -p src/processing
+touch src/processing/__init__.py
+
+
+9.2 Crie o diretório e o arquivo de inicialização:
+
+touch src/processing/transformations.py
+
+
+9.3 Adicione o seguinte código a ele:
+
+from pyspark.sql import DataFrame
+from pyspark.sql import functions as F
+
+class Transformation:
+
+    def filtrar_pagamentos_validos(self, pagamentos_df: DataFrame) -> DataFrame:
+        return (
+            pagamentos_df
+                .filter(F.col("status") == False)
+                .filter(F.col("fraude") == False)
+        )
+
+    def filtrar_pedidos_2025(self, pedidos_df: DataFrame) -> DataFrame:
+        return pedidos_df.filter(F.year("DATA_CRIACAO") == 2025)
+
+    def adicionar_valor_total(self, pedidos_df: DataFrame) -> DataFrame:
+        return pedidos_df.withColumn(
+            "valor_total",
+            F.col("VALOR_UNITARIO") * F.col("QUANTIDADE")
+        )
+
+    def join_pedidos_pagamentos(self, pedidos_df, pagamentos_df):
+        return pedidos_df.join(
+            pagamentos_df,
+            pedidos_df.ID_PEDIDO == pagamentos_df.id_pedido,
+            "inner"
+        )
+
+    def selecionar_campos_finais(self, df):
+        return df.select(
+            df.ID_PEDIDO.alias("id_pedido"),
+            df.UF.alias("estado"),
+            df.forma_pagamento,
+            df.valor_total,
+            df.DATA_CRIACAO.alias("data_pedido")
+        )
+
+    def ordenar_relatorio(self, df):
+        return df.orderBy("estado", "forma_pagamento", "data_pedido")
+
+
+9.4 Faça o teste:
+
+Execute o pipeline a partir da pasta raiz do projeto, garantindo que o ambiente virtual esteja ativado (source .venv/bin/activate).
+
+spark-submit src/main.py
