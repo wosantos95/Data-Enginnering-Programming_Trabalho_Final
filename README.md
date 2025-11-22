@@ -103,7 +103,7 @@ Não se esqueça de conceder permissão de execução: chmod +x src/download_dat
 ./src/download_data.sh
 ````
 
-5. Criação do script src/main.py
+## 5. Criação do script src/main.py
 
 5.1 Crie o script src/main.py
 ```bash
