@@ -13,4 +13,8 @@ __pycache__/
 
 # Metadados de IDEs (Cloud9/VSCode)
 .vscode/
+<<<<<<< HEAD
 .c9/
+=======
+.c9/
+>>>>>>> 5554f58 (Primeiro commit - projeto PySpark FIAP)
