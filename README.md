@@ -42,13 +42,14 @@ pip install pyspark pyyaml
 touch src/download_data.sh
 ````
 
-4.2. Copie o script abaixo no arquivo:
+4.2. Copie o script abaixo e cole no arquivo src/download_data.sh:
 
 Este script baixa automaticamente o conteúdo dos repositórios necessários para a execução:
 
 https://github.com/infobarbosa/datasets-csv-pedidos
 
 https://github.com/infobarbosa/dataset-json-pagamentos
+
 ```bash
 <!-- end list -->
 
@@ -172,21 +173,22 @@ finally:
     spark.stop()
 ````
 
-6. Centralizando as Configurações
+## 6. Centralizando as Configurações
 
 6.1 Instale a dependência pyyaml:
 
+```bash
 pip install pyyaml
-
+````
 
 6.2 Crie um arquivo config/settings.yaml:
-
+```bash
 mkdir config
 touch config/settings.yaml
-
+````
 
 6.3 Adicione o seguinte conteúdo ao arquivo config/settings.yaml:
-
+```bash
 spark:
   app_name: "Analise de Pedidos 2025"
 
@@ -200,44 +202,47 @@ file_options:
     compression: "gzip"
     header: true
     sep: ";"
-
+````
 
 6.4 Crie o diretório e o arquivo de inicialização:
 
+```bash
 mkdir -p src/config
 touch src/config/__init__.py
-
+````
 
 6.5 Crie o arquivo src/config/settings.py:
-
+```bash
 touch src/config/settings.py
-
+````
 
 6.6 Cole o código abaixo no conteudo do arquivo:
-
+```bash
 import yaml
 
 def carregar_config(path: str = "config/settings.yaml") -> dict:
     """Carrega um arquivo de configuração YAML."""
     with open(path, "r", encoding="utf-8") as file:
         return yaml.safe_load(file)
+````
 
-
-7. Gerenciando a Sessão Spark
+## 7. Gerenciando a Sessão Spark
 
 7.1 Crie o diretório e o arquivo de inicialização:
 
+```bash
 mkdir -p src/session
 touch src/session/__init__.py
-
+````
 
 7.2 Crie o arquivo src/session/spark_session.py:
 
+```bash
 touch src/session/spark_session.py
-
+````
 
 7.3 Adicione o seguinte código a ele:
-
+```bash
 from pyspark.sql import SparkSession
 
 class SparkSessionManager:
@@ -253,23 +258,23 @@ class SparkSessionManager:
                 .config("spark.ui.showConsoleProgress", "true")
                 .getOrCreate()
         )
+````
 
-
-8. Pacote de Leitura e Escrita de Dados (I/O)
+## 8. Pacote de Leitura e Escrita de Dados (I/O)
 
 8.1 Crie o diretório e o arquivo de inicialização:
-
+```bash
 mkdir -p src/io_utils
 touch src/io_utils/__init__.py
-
+````
 
 8.2 Crie o arquivo src/io_utils/data_handler.py:
-
+```bash
 touch src/io_utils/data_handler.py
-
+````
 
 8.3 Adicione o seguinte código a ele:
-
+```bash
 from pyspark.sql import SparkSession, DataFrame
 from pyspark.sql.types import (
     StructType, StructField, StringType, LongType,
@@ -327,23 +332,23 @@ class DataHandler:
     def write_parquet(self, df: DataFrame, path: str):
         df.write.mode("overwrite").parquet(path)
         print(f"✔ Arquivo gerado em: {path}")
+````
 
-
-9. Isolando a Lógica de Negócio
+## 9. Isolando a Lógica de Negócio
 
 9.1 Crie o diretório e o arquivo de inicialização:
-
+```bash
 mkdir -p src/processing
 touch src/processing/__init__.py
-
+````
 
 9.2 Crie o diretório e o arquivo de inicialização:
-
+```bash
 touch src/processing/transformations.py
-
+````
 
 9.3 Adicione o seguinte código a ele:
-
+```bash
 from pyspark.sql import DataFrame
 from pyspark.sql import functions as F
 
@@ -383,10 +388,11 @@ class Transformation:
 
     def ordenar_relatorio(self, df):
         return df.orderBy("estado", "forma_pagamento", "data_pedido")
-
+````
 
 9.4 Faça o teste:
 
 Execute o pipeline a partir da pasta raiz do projeto, garantindo que o ambiente virtual esteja ativado (source .venv/bin/activate).
-
+```bash
 spark-submit src/main.py
+````
