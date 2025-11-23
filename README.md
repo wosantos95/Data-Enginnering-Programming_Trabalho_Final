@@ -291,13 +291,13 @@ if __name__ == "__main__":
 ## 4. Inserir Arquivos de Entrada
 
 ### 4.1 Crie o arquivo download_dat.sh
-```python
+```shell script
 touch data/download_data.sh
 ```
 
 ### 4.2 Cole dentro do arquivo download_dat.sh
 
-```python
+```bash
 set -e
 
 ROOT="/home/ubuntu/environment/data-engineering-pyspark"
