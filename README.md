@@ -292,7 +292,7 @@ if __name__ == "__main__":
 
 ### 4.1 Crie o arquivo download_dat.sh
 ```python
-touch /Data-Enginnering-Programming_Trabalho_Final/data/download_data.sh
+touch data/download_data.sh
 ```
 
 ### 4.2 Cole dentro do arquivo download_dat.sh
